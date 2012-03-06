@@ -2,12 +2,15 @@
 
 use strict;
 use ExtUtils::MakeMaker qw(WriteMakefile);
+use Config;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 
 # I should maybe use something like Shipwright...
 #regen_README('lib/WWW/Mechanize/Firefox.pm');
 #regen_EXAMPLES();
+
+# TODO: Add command line switches in addition to %ENV and %Config
 
 warn <<ALPHA_WARNING;
 *** ALPHA VERSION!
@@ -17,6 +20,23 @@ warn <<ALPHA_WARNING;
 ALPHA_WARNING
 
 my @tests = map { glob $_ } 't/*.t', 't/*/*.t';
+
+my $ccflags = $ENV{CCFLAGS}
+            || $Config::Config{ ccflags }
+            ;
+
+my $LIBS = $ENV{LIBS} 
+           || '-ljpeg -lpng'
+           ;
+
+my @LIBS = ($LIBS);
+
+if( $^O =~ /mswin32/i ) {
+    # I'm sorry, but I don't know how else get -lws2_32 to link :-/
+    $LIBS = "$LIBS -LC:\\strawberry\\c\\i686-w64-mingw32\\lib -lws2_32";
+    #push @LIBS, ":nosearch $LIBS -lws2_32";
+};
+warn "LIBS: $LIBS\n";
 
 WriteMakefile1(
     MIN_PERL_VERSION => '5.006',
@@ -37,19 +57,27 @@ WriteMakefile1(
                        'Imager' => 0.78,
                        'Imager::File::PNG' => 0, # Our tests want to read/write PNG
                        'Imager::File::JPEG' => 0, # just to make sure you have libjpeg somewhere
+                        'List::Util' => '0', # just for the example programs
                       }, # e.g., Module::Name => 1.1
     'TYPEMAPS' => [
         #'C:\\strawberry\\perl\\lib\\ExtUtils\\typemap',
         'typemap'
     ],
-    'CCFLAGS' => '  -mms-bitfields -O2 -msse2 -DHAVE_ZLIB -DHAVE_LIBJPEG -DHAVE_LIBPNG',
+    'DEFINE'  => '-DHAVE_ZLIB -DHAVE_LIBJPEG -DHAVE_LIBPNG',
+    'OBJECT'  => '$(O_FILES)', # link all the C files too
+    #'CCFLAGS' => "-msse2 -s -O2 -fno-strict-aliasing -mms-bitfields -DPERL_IMPLICIT_CONTEXT",# $ccflags",
+    'CCFLAGS' => "-msse2 -mms-bitfields $ccflags",
     #'INC' => '-I"C:/Projekte/CCV"',
     'LIBS' => [
-    '-ljpeg -lpng'
+        $LIBS,
     ],
-    'VERSION' => '0.01',
+    #LDDLFLAGS => "$Config{lddlflags}",
+    #'VERSION' => '0.01',
     ABSTRACT_FROM   => 'lib/Image/CCV.pm', # retrieve abstract from module
     AUTHOR          => 'Max Maischein <corion@cpan.org>',
+    #dynamic_lib => {
+    #    OTHERDLFLAGS => $LIBS,
+    #},
     test            => { TESTS => join( ' ', @tests ) },
 );
 
