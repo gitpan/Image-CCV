@@ -1,16 +1,12 @@
-# -*- mode: perl; c-basic-offset: 4; indent-tabs-mode: nil; -*-
-
+#!perl -w
 use strict;
 use ExtUtils::MakeMaker qw(WriteMakefile);
 use Config;
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
 
-# I should maybe use something like Shipwright...
-#regen_README('lib/WWW/Mechanize/Firefox.pm');
-#regen_EXAMPLES();
+use lib qw(inc);
+use Devel::CheckLib;
 
-# TODO: Add command line switches in addition to %ENV and %Config
+# Prompt the user here for any paths and other configuration
 
 warn <<ALPHA_WARNING;
 *** ALPHA VERSION!
@@ -20,23 +16,42 @@ warn <<ALPHA_WARNING;
 ALPHA_WARNING
 
 my @tests = map { glob $_ } 't/*.t', 't/*/*.t';
+my $module = 'Image::CCV';
+(my $module_pm = "lib/$module.pm") =~ s!::!/!g;
+
+# I should maybe use something like Shipwright...
+#regen_README($module_pm);
+regen_EXAMPLES();
 
 my $ccflags = $ENV{CCFLAGS}
             || $Config::Config{ ccflags }
             ;
 
+# TODO: Add command line switches in addition to %ENV and %Config
+
+my $is_Win32 = ($^O =~ /mswin32/i );
+
+check_lib_or_exit( lib => 'png' );
+check_lib_or_exit( lib => 'jpeg' );
+
+if(! $is_Win32) {
+    check_lib_or_exit( header => 'alloca.h', function => '(int)&alloca' );
+};
+
 my $LIBS = $ENV{LIBS} 
            || '-ljpeg -lpng'
            ;
 
-my @LIBS = ($LIBS);
-
-if( $^O =~ /mswin32/i ) {
+if( $is_Win32 ) {    
     # I'm sorry, but I don't know how else get -lws2_32 to link :-/
     $LIBS = "$LIBS -LC:\\strawberry\\c\\i686-w64-mingw32\\lib -lws2_32";
-    #push @LIBS, ":nosearch $LIBS -lws2_32";
+    
 };
-warn "LIBS: $LIBS\n";
+# These should be the default everywhere, but aren't on my versions of Perl
+# (strawberry and Debian ./Configure -de)
+$ccflags = "-msse2 $ccflags";
+
+my @LIBS = ($LIBS);
 
 WriteMakefile1(
     MIN_PERL_VERSION => '5.006',
@@ -50,13 +65,11 @@ WriteMakefile1(
                         'Exporter'   => '0',
                         'Carp'       => '0',
     },
-    'NAME'          => 'Image::CCV',
+    'NAME'          => $module,
     'LICENSE'       => 'perl',
-    'VERSION_FROM'  => 'lib/Image/CCV.pm', # finds $VERSION
+    'VERSION_FROM'  => $module_pm,
     'PREREQ_PM'     => {
                        'Imager' => 0.78,
-                       'Imager::File::PNG' => 0, # Our tests want to read/write PNG
-                       'Imager::File::JPEG' => 0, # just to make sure you have libjpeg somewhere
                         'List::Util' => '0', # just for the example programs
                       }, # e.g., Module::Name => 1.1
     'TYPEMAPS' => [
@@ -65,19 +78,14 @@ WriteMakefile1(
     ],
     'DEFINE'  => '-DHAVE_ZLIB -DHAVE_LIBJPEG -DHAVE_LIBPNG',
     'OBJECT'  => '$(O_FILES)', # link all the C files too
-    #'CCFLAGS' => "-msse2 -s -O2 -fno-strict-aliasing -mms-bitfields -DPERL_IMPLICIT_CONTEXT",# $ccflags",
-    'CCFLAGS' => "-msse2 -mms-bitfields $ccflags",
+    #'CCFLAGS' => "-msse2 -mms-bitfields $ccflags",
+    'CCFLAGS' => $ccflags,
     #'INC' => '-I"C:/Projekte/CCV"',
     'LIBS' => [
         $LIBS,
     ],
-    #LDDLFLAGS => "$Config{lddlflags}",
-    #'VERSION' => '0.01',
-    ABSTRACT_FROM   => 'lib/Image/CCV.pm', # retrieve abstract from module
+    ABSTRACT_FROM   => $module_pm, # retrieve abstract from module
     AUTHOR          => 'Max Maischein <corion@cpan.org>',
-    #dynamic_lib => {
-    #    OTHERDLFLAGS => $LIBS,
-    #},
     test            => { TESTS => join( ' ', @tests ) },
 );
 
@@ -131,16 +139,20 @@ sub regen_README {
 
 sub regen_EXAMPLES {
     my $perl = $^X;
-    warn "(Re)Creating lib/WWW/Mechanize/Firefox/Examples.pm\n";
-    if ($perl =~/\s/) {
-        $perl = qq{"$perl"};
-    };
-    my $examples = `$perl -w examples/gen_examples_pod.pl`;
-    if ($examples) {
-        $examples =~ s/\r\n/\n/g;
-        if (open my $out, '>', 'lib/WWW/Mechanize/Firefox/Examples.pm') {
-            binmode $out;
-            print $out $examples;
+    (my $target = $module_pm) =~ s!\.pm$!/Examples.pm!;
+    
+    if( -d 'examples' ) {
+        warn "(Re)Creating $target\n";
+        if ($perl =~/\s/) {
+            $perl = qq{"$perl"};
+        };
+        my $examples = `$perl -w examples/gen_examples_pod.pl $module`;
+        if ($examples) {
+            $examples =~ s/\r\n/\n/g;
+            if (open my $out, '>', $target) {
+                binmode $out;
+                print $out $examples;
+            };
         };
     };
 };
