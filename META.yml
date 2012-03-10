@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Image-CCV
-version:            0.03
+version:            0.04
 abstract:           Crazy-cool Computer Vision bindings for Perl
 author:
     - Max Maischein <corion@cpan.org>
