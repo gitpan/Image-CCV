@@ -1,7 +1,11 @@
 #include "ccv.h"
-#ifdef HAVE_FFTW3
+#include "ccv_internal.h"
 #include <complex.h>
+#ifdef HAVE_FFTW3
 #include <fftw3.h>
+#else
+#include "3rdparty/kissfft/kiss_fftndr.h"
+#include "3rdparty/kissfft/kissf_fftndr.h"
 #endif
 
 void ccv_invert(ccv_matrix_t* a, ccv_matrix_t** b, int type)
@@ -40,8 +44,8 @@ void ccv_minimize(ccv_dense_matrix_t* x, int length, double red, ccv_minimize_f 
 	int i, j, k;
 	func(x, &f0, df0, data);
 	d0 = 0;
-	unsigned char* df0p = df0->data.ptr;
-	unsigned char* sp = s->data.ptr;
+	unsigned char* df0p = df0->data.u8;
+	unsigned char* sp = s->data.u8;
 	for (i = 0; i < x->rows; i++)
 	{
 		for (j = 0; j < x->cols; j++)
@@ -60,8 +64,8 @@ void ccv_minimize(ccv_dense_matrix_t* x, int length, double red, ccv_minimize_f 
 	for (k = 0; k < l;)
 	{
 		k += ls;
-		memcpy(x0->data.ptr, x->data.ptr, x->rows * x->step);
-		memcpy(dF0->data.ptr, df0->data.ptr, x->rows * x->step);
+		memcpy(x0->data.u8, x->data.u8, x->rows * x->step);
+		memcpy(dF0->data.u8, df0->data.u8, x->rows * x->step);
 		F0 = f0;
 		int m = ccv_min(params.max_iter, (length > 0) ? params.max_iter : l - k);
 		for (;;)
@@ -69,14 +73,14 @@ void ccv_minimize(ccv_dense_matrix_t* x, int length, double red, ccv_minimize_f 
 			x2 = 0;
 			f3 = f2 = f0;
 			d2 = d0;
-			memcpy(df3->data.ptr, df0->data.ptr, x->rows * x->step);
+			memcpy(df3->data.u8, df0->data.u8, x->rows * x->step);
 			while (m > 0)
 			{
 				m--;
 				k += eh;
-				unsigned char* sp = s->data.ptr;
-				unsigned char* xp = x->data.ptr;
-				unsigned char* xnp = xn->data.ptr;
+				unsigned char* sp = s->data.u8;
+				unsigned char* xp = x->data.u8;
+				unsigned char* xnp = xn->data.u8;
 				for (i = 0; i < x->rows; i++)
 				{
 					for (j = 0; j < x->cols; j++)
@@ -92,13 +96,13 @@ void ccv_minimize(ccv_dense_matrix_t* x, int length, double red, ccv_minimize_f 
 			}
 			if (f3 < F0)
 			{
-				memcpy(x0->data.ptr, xn->data.ptr, x->rows * x->step);
-				memcpy(dF0->data.ptr, df3->data.ptr, x->rows * x->step);
+				memcpy(x0->data.u8, xn->data.u8, x->rows * x->step);
+				memcpy(dF0->data.u8, df3->data.u8, x->rows * x->step);
 				F0 = f3;
 			}
 			d3 = 0;
-			unsigned char* df3p = df3->data.ptr;
-			unsigned char* sp = s->data.ptr;
+			unsigned char* df3p = df3->data.u8;
+			unsigned char* sp = s->data.u8;
 			for (i = 0; i < x->rows; i++)
 			{
 				for (j = 0; j < x->cols; j++)
@@ -144,9 +148,9 @@ void ccv_minimize(ccv_dense_matrix_t* x, int length, double red, ccv_minimize_f 
 				x3 = (x3 < 0) ? (x2 + x4) * 0.5 : x2 + (sqrt(x3) - B) / A;
 			}
 			x3 = ccv_max(ccv_min(x3, x4 - params.interp * (x4 - x2)), x2 + params.interp * (x4 - x2));
-			sp = s->data.ptr;
-			unsigned char* xp = x->data.ptr;
-			unsigned char* xnp = xn->data.ptr;
+			sp = s->data.u8;
+			unsigned char* xp = x->data.u8;
+			unsigned char* xnp = xn->data.u8;
 			for (i = 0; i < x->rows; i++)
 			{
 				for (j = 0; j < x->cols; j++)
@@ -158,15 +162,15 @@ void ccv_minimize(ccv_dense_matrix_t* x, int length, double red, ccv_minimize_f 
 			func(xn, &f3, df3, data);
 			if (f3 < F0)
 			{
-				memcpy(x0->data.ptr, xn->data.ptr, x->rows * x->step);
-				memcpy(dF0->data.ptr, df3->data.ptr, x->rows * x->step);
+				memcpy(x0->data.u8, xn->data.u8, x->rows * x->step);
+				memcpy(dF0->data.u8, df3->data.u8, x->rows * x->step);
 				F0 = f3;
 			}
 			m--;
 			k += eh;
 			d3 = 0;
-			sp = s->data.ptr;
-			unsigned char* df3p = df3->data.ptr;
+			sp = s->data.u8;
+			unsigned char* df3p = df3->data.u8;
 			for (i = 0; i < x->rows; i++)
 			{
 				for (j = 0; j < x->cols; j++)
@@ -177,13 +181,13 @@ void ccv_minimize(ccv_dense_matrix_t* x, int length, double red, ccv_minimize_f 
 		}
 		if ((fabs(d3) < -params.sig * d0) && (f3 < f0 + x3 * params.rho * d0))
 		{
-			memcpy(x->data.ptr, xn->data.ptr, x->rows * x->step);
+			memcpy(x->data.u8, xn->data.u8, x->rows * x->step);
 			f0 = f3;
 			double df0_df3 = 0;
 			double df3_df3 = 0;
 			double df0_df0 = 0;
-			unsigned char* df0p = df0->data.ptr;
-			unsigned char* df3p = df3->data.ptr;
+			unsigned char* df0p = df0->data.u8;
+			unsigned char* df3p = df3->data.u8;
 			for (i = 0; i < x->rows; i++)
 			{
 				for (j = 0; j < x->cols; j++)
@@ -196,8 +200,8 @@ void ccv_minimize(ccv_dense_matrix_t* x, int length, double red, ccv_minimize_f 
 				df3p += x->step;
 			}
 			double slr = (df3_df3 - df0_df3) / df0_df0;
-			df3p = df3->data.ptr;
-			unsigned char* sp = s->data.ptr;
+			df3p = df3->data.u8;
+			unsigned char* sp = s->data.u8;
 			for (i = 0; i < x->rows; i++)
 			{
 				for (j = 0; j < x->cols; j++)
@@ -205,11 +209,11 @@ void ccv_minimize(ccv_dense_matrix_t* x, int length, double red, ccv_minimize_f 
 				df3p += x->step;
 				sp += x->step;
 			}
-			memcpy(df0->data.ptr, df3->data.ptr, x->rows * x->step);
+			memcpy(df0->data.u8, df3->data.u8, x->rows * x->step);
 			d3 = d0;
 			d0 = 0;
-			df0p = df0->data.ptr;
-			sp = s->data.ptr;
+			df0p = df0->data.u8;
+			sp = s->data.u8;
 			for (i = 0; i < x->rows; i++)
 			{
 				for (j = 0; j < x->cols; j++)
@@ -222,8 +226,8 @@ void ccv_minimize(ccv_dense_matrix_t* x, int length, double red, ccv_minimize_f 
 			if (d0 > 0)
 			{
 				d0 = 0;
-				df0p = df0->data.ptr;
-				sp = s->data.ptr;
+				df0p = df0->data.u8;
+				sp = s->data.u8;
 				for (i = 0; i < x->rows; i++)
 				{
 					for (j = 0; j < x->cols; j++)
@@ -239,14 +243,14 @@ void ccv_minimize(ccv_dense_matrix_t* x, int length, double red, ccv_minimize_f 
 			x3 = x3 * ccv_min(params.ratio, d3 / (d0 - 1e-8));
 			ls_failed = 0;
 		} else {
-			memcpy(x->data.ptr, x0->data.ptr, x->rows * x->step);
-			memcpy(df0->data.ptr, dF0->data.ptr, x->rows * x->step);
+			memcpy(x->data.u8, x0->data.u8, x->rows * x->step);
+			memcpy(df0->data.u8, dF0->data.u8, x->rows * x->step);
 			f0 = F0;
 			if (ls_failed)
 				break;
 			d0 = 0;
-			unsigned char* df0p = df0->data.ptr;
-			unsigned char* sp = s->data.ptr;
+			unsigned char* df0p = df0->data.u8;
+			unsigned char* sp = s->data.u8;
 			for (i = 0; i < x->rows; i++)
 			{
 				for (j = 0; j < x->cols; j++)
@@ -270,6 +274,7 @@ void ccv_minimize(ccv_dense_matrix_t* x, int length, double red, ccv_minimize_f 
 	ccv_matrix_free(df3);
 }
 
+#ifdef HAVE_FFTW3
 /* optimal FFT size table is adopted from OpenCV */
 static const int _ccv_optimal_fft_size[] = {
 	1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 18, 20, 24, 25, 27, 30, 32, 36, 40, 45, 48, 
@@ -454,7 +459,7 @@ static const int _ccv_optimal_fft_size[] = {
 
 static int _ccv_get_optimal_fft_size(int size)
 {
-	int a = 0, b = sizeof(_ccv_optimal_fft_size)/sizeof(_ccv_optimal_fft_size[0]) - 1;
+	int a = 0, b = sizeof(_ccv_optimal_fft_size) / sizeof(_ccv_optimal_fft_size[0]) - 1;
     if((unsigned)size >= (unsigned)_ccv_optimal_fft_size[b])
 		return -1;
 	while(a < b)
@@ -468,122 +473,386 @@ static int _ccv_get_optimal_fft_size(int size)
     return _ccv_optimal_fft_size[b];
 }
 
-#ifdef HAVE_FFTW3
-static void _ccv_filter_fftw(ccv_dense_matrix_t* a, ccv_dense_matrix_t* b, ccv_dense_matrix_t* d)
+static void _ccv_filter_fftw(ccv_dense_matrix_t* a, ccv_dense_matrix_t* b, ccv_dense_matrix_t* d, int padding_pattern)
 {
-	int rows = ccv_min(a->rows, _ccv_get_optimal_fft_size(b->rows * 3));
-	int cols = ccv_min(a->cols, _ccv_get_optimal_fft_size(b->cols * 3));
+	int ch = CCV_GET_CHANNEL(a->type);
+	int fft_type = (CCV_GET_DATA_TYPE(d->type) == CCV_8U || CCV_GET_DATA_TYPE(d->type) == CCV_32F) ? CCV_32F : CCV_64F;
+	int rows = ccv_min(a->rows + b->rows - 1, _ccv_get_optimal_fft_size(b->rows * 3));
+	int cols = ccv_min(a->cols + b->cols - 1, _ccv_get_optimal_fft_size(b->cols * 3));
 	int cols_2c = 2 * (cols / 2 + 1);
-	double* fftw_a = (double*)fftw_malloc(rows * cols_2c * sizeof(double));
-	double* fftw_b = (double*)fftw_malloc(rows * cols_2c * sizeof(double));
-	memset(fftw_b, 0, rows * cols_2c * sizeof(double));
-	double* fftw_d = (double*)fftw_malloc(rows * cols * sizeof(double));
-	fftw_complex* fftw_ac = (fftw_complex*)fftw_a;
-	fftw_complex* fftw_bc = (fftw_complex*)fftw_b;
-	fftw_complex* fftw_dc = (fftw_complex*)fftw_malloc(rows * (cols / 2 + 1) * sizeof(fftw_complex));
+	void* fftw_a;
+	void* fftw_b;
+	void* fftw_d;
 	fftw_plan p, pinv;
-	double scale = 1.0 / (rows * cols);
-	p = fftw_plan_dft_r2c_2d(rows, cols, 0, 0, FFTW_ESTIMATE);
-	pinv = fftw_plan_dft_c2r_2d(rows, cols, fftw_dc, fftw_d, FFTW_ESTIMATE);
-	double* fftw_ptr;
-	unsigned char* m_ptr;
-
-	/* discrete kernel is always meant to be (0,0) centered, but in most case, it is (0,0) toplefted.
-	 * to compensate that, Fourier function will assume that it is a periodic function, which, will
-	 * result the following interleaving:
-	 * | 0 1 2 3 |    | A B 8 9 |
-	 * | 4 5 6 7 | to | E F C D |
-	 * | 8 9 A B |    | 2 3 0 1 |
-	 * | C D E F |    | 4 7 4 5 |
-	 * a more classic way to do this is to pad both a and b to be a->rows + b->rows - 1,
-	 * a->cols + b->cols - 1, but it is too expensive. In the way we introduced here, we also assume
-	 * a border padding pattern in periodical way: |cd{BORDER}|abcd|{BORDER}ab|. */
-	int i, j;
-	if (b->rows > rows || b->cols > cols)
-	{ /* reverse lookup */
-		fftw_ptr = fftw_b;
-		for (i = 0; i < rows; i++)
+	fftwf_plan pf, pinvf;
+	if (fft_type == CCV_32F)
+	{
+		fftw_a = fftwf_malloc(rows * cols_2c * ch * sizeof(float));
+		fftw_b = fftwf_malloc(rows * cols_2c * ch * sizeof(float));
+		fftw_d = fftwf_malloc(rows * cols_2c * ch * sizeof(float));
+		if (ch == 1)
 		{
-			int y = (i + rows / 2) % rows - rows / 2 + b->rows / 2;
-			for (j = 0; j < cols; j++)
-			{
-				int x = (j + cols / 2) % cols - cols / 2 + b->cols / 2;
-				fftw_ptr[j] = (y >= 0 && y < b->rows && x >= 0 && x < b->cols) ? ccv_get_dense_matrix_cell_value(b, y, x) : 0;
-			}
-			fftw_ptr += cols_2c;
+			pf = fftwf_plan_dft_r2c_2d(rows, cols, 0, 0, FFTW_ESTIMATE);
+			pinvf = fftwf_plan_dft_c2r_2d(rows, cols, 0, 0, FFTW_ESTIMATE);
+		} else {
+			int ndim[] = {rows, cols};
+			pf = fftwf_plan_many_dft_r2c(2, ndim, ch, 0, 0, ch, 1, 0, 0, ch, 1, FFTW_ESTIMATE);
+			pinvf = fftwf_plan_many_dft_c2r(2, ndim, ch, 0, 0, ch, 1, 0, 0, ch, 1, FFTW_ESTIMATE);
 		}
-	} else { /* forward lookup */
-		int rows_bc = rows - b->rows / 2;
-		int cols_bc = cols - b->cols / 2;
-		for (i = 0; i < b->rows; i++)
+	} else {
+		fftw_a = fftw_malloc(rows * cols_2c * ch * sizeof(double));
+		fftw_b = fftw_malloc(rows * cols_2c * ch * sizeof(double));
+		fftw_d = fftw_malloc(rows * cols_2c * ch * sizeof(double));
+		if (ch == 1)
 		{
-			int y = (i + rows_bc) % rows;
-			for (j = 0; j < b->cols; j++)
-				fftw_b[y * cols_2c + (j + cols_bc) % cols] = ccv_get_dense_matrix_cell_value(b, i, j);
+			p = fftw_plan_dft_r2c_2d(rows, cols, 0, 0, FFTW_ESTIMATE);
+			pinv = fftw_plan_dft_c2r_2d(rows, cols, 0, 0, FFTW_ESTIMATE);
+		} else {
+			int ndim[] = {rows, cols};
+			p = fftw_plan_many_dft_r2c(2, ndim, ch, 0, 0, ch, 1, 0, 0, ch, 1, FFTW_ESTIMATE);
+			pinv = fftw_plan_many_dft_c2r(2, ndim, ch, 0, 0, ch, 1, 0, 0, ch, 1, FFTW_ESTIMATE);
 		}
 	}
-	fftw_execute_dft_r2c(p, fftw_b, fftw_bc);
+	memset(fftw_b, 0, rows * cols_2c * ch * CCV_GET_DATA_TYPE_SIZE(fft_type));
 
-	int tile_x = ccv_max(1, (a->cols + cols - b->cols - 1) / (cols - b->cols));
-	int tile_y = ccv_max(1, (a->rows + rows - b->rows - 1) / (rows - b->rows));
-	/* do FFT for each tile */
-#define for_block(_for_set, _for_get) \
+	int i, j, k;
+	unsigned char* m_ptr = b->data.u8;
+	// to flip matrix b is crucial, this problem only shows when I changed to a more sophisticated test case
+#define for_block(_for_type, _for_get) \
+	_for_type* fftw_ptr = (_for_type*)fftw_b + (b->rows - 1) * cols_2c * ch; \
+	for (i = 0; i < b->rows; i++) \
+	{ \
+		for (j = 0; j < b->cols; j++) \
+			for (k = 0; k < ch; k++) \
+				fftw_ptr[(b->cols - 1 - j) * ch + k] = _for_get(m_ptr, j * ch + k, 0); \
+		fftw_ptr -= cols_2c * ch; \
+		m_ptr += b->step; \
+	}
+	ccv_matrix_typeof(fft_type, ccv_matrix_getter, b->type, for_block);
+#undef for_block
+	if (fft_type == CCV_32F)
+		fftwf_execute_dft_r2c(pf, (float*)fftw_b, (fftwf_complex*)fftw_b);
+	else
+		fftw_execute_dft_r2c(p, (double*)fftw_b, (fftw_complex*)fftw_b);
+	/* why a->cols + cols - 2 * (b->cols & ~1) ?
+	 * what we really want is ceiling((a->cols - (b->cols & ~1)) / (cols - (b->cols & ~1)))
+	 * in this case, we strip out paddings on the left/right, and compute how many tiles
+	 * we need. It then be interpreted in the above integer division form */
+	int tile_x = ccv_max(1, (a->cols + cols - 2 * (b->cols & ~1)) / (cols - (b->cols & ~1)));
+	int tile_y = ccv_max(1, (a->rows + rows - 2 * (b->rows & ~1)) / (rows - (b->rows & ~1)));
+	int brows2 = b->rows / 2;
+	int bcols2 = b->cols / 2;
+#define for_block(_for_type, _cpx_type, _for_set, _for_get) \
+	_for_type scale = 1.0 / (rows * cols); \
 	for (i = 0; i < tile_y; i++) \
 		for (j = 0; j < tile_x; j++) \
 		{ \
 			int x, y; \
-			memset(fftw_a, 0, rows * cols * sizeof(double)); \
-			int iy = ccv_min(i * (rows - b->rows), a->rows - rows); \
-			int ix = ccv_min(j * (cols - b->cols), a->cols - cols); \
-			fftw_ptr = fftw_a; \
-			m_ptr = (unsigned char*)ccv_get_dense_matrix_cell(a, iy, ix); \
-			for (y = 0; y < rows; y++) \
+			memset(fftw_a, 0, rows * cols_2c * ch * sizeof(_for_type)); \
+			int iy = ccv_min(i * (rows - (b->rows & ~1)), ccv_max(a->rows - rows, 0)); \
+			int ix = ccv_min(j * (cols - (b->cols & ~1)), ccv_max(a->cols - cols, 0)); \
+			_for_type* fftw_ptr = (_for_type*)fftw_a; \
+			int end_y = ccv_min(rows, a->rows - iy); \
+			int end_x = ccv_min(cols, a->cols - ix); \
+			m_ptr = (unsigned char*)ccv_get_dense_matrix_cell(a, iy, ix, 0); \
+			for (y = 0; y < end_y; y++) \
 			{ \
-				for (x = 0; x < cols; x++) \
+				for (x = 0; x < end_x * ch; x++) \
 					fftw_ptr[x] = _for_get(m_ptr, x, 0); \
-				fftw_ptr += cols_2c; \
+				fftw_ptr += cols_2c * ch; \
 				m_ptr += a->step; \
 			} \
-			fftw_execute_dft_r2c(p, fftw_a, fftw_ac); \
-			for (x = 0; x < rows * (cols / 2 + 1); x++) \
+			_cpx_type* fftw_ac = (_cpx_type*)fftw_a; \
+			_cpx_type* fftw_bc = (_cpx_type*)fftw_b; \
+			_cpx_type* fftw_dc = (_cpx_type*)fftw_d; \
+			fft_execute_dft_r2c((_for_type*)fftw_a, (_cpx_type*)fftw_ac); \
+			for (x = 0; x < rows * ch * (cols / 2 + 1); x++) \
 				fftw_dc[x] = (fftw_ac[x] * fftw_bc[x]) * scale; \
-			fftw_execute_dft_c2r(pinv, fftw_dc, fftw_d); \
-			fftw_ptr = fftw_d + (i > 0) * b->rows / 2 * cols + (j > 0) * b->cols / 2; \
-			int end_y = ccv_min(d->rows - iy, (rows - b->rows) + (i == 0) * b->rows / 2 + (i + 1 == tile_y) * (b->rows + 1) / 2); \
-			int end_x = ccv_min(d->cols - ix, (cols - b->cols) + (j == 0) * b->cols / 2 + (j + 1 == tile_x) * (b->cols + 1) / 2); \
-			m_ptr = (unsigned char*)ccv_get_dense_matrix_cell(d, iy + (i > 0) * b->rows / 2, ix + (j > 0) * b->cols / 2); \
+			fft_execute_dft_c2r((_cpx_type*)fftw_dc, (_for_type*)fftw_d); \
+			fftw_ptr = (_for_type*)fftw_d + ((1 + (i > 0)) * brows2 * cols_2c + (1 + (j > 0)) * bcols2) * ch; \
+			end_y = ccv_min(d->rows - (iy + (i > 0) * brows2), \
+							(rows - (b->rows & ~1)) + (i == 0) * brows2); \
+			end_x = ccv_min(d->cols - (ix + (j > 0) * bcols2), \
+							(cols - (b->cols & ~1)) + (j == 0) * bcols2); \
+			m_ptr = (unsigned char*)ccv_get_dense_matrix_cell(d, iy + (i > 0) * brows2, ix + (j > 0) * bcols2, 0); \
+			for (y = 0; y < end_y; y++) \
+			{ \
+				for (x = 0; x < end_x * ch; x++) \
+					_for_set(m_ptr, x, fftw_ptr[x], 0); \
+				m_ptr += d->step; \
+				fftw_ptr += cols_2c * ch; \
+			} \
+			int end_tile_y, end_tile_x; \
+			/* handle edge cases: */ \
+			if (i + 1 == tile_y && end_y + iy + (i > 0) * brows2 + 1 < d->rows) \
+			{ \
+				end_tile_y = ccv_min(brows2, d->rows - (iy + (i > 0) * brows2 + end_y)); \
+				fftw_ptr = (_for_type*)fftw_d + (1 + (j > 0)) * bcols2 * ch; \
+				m_ptr = (unsigned char*)ccv_get_dense_matrix_cell(d, iy + (i > 0) * brows2 + end_y, ix + (j > 0) * bcols2, 0); \
+				for (y = 0; y < end_tile_y; y++) \
+				{ \
+					for (x = 0; x < end_x * ch; x++) \
+						_for_set(m_ptr, x, fftw_ptr[x], 0); \
+					m_ptr += d->step; \
+					fftw_ptr += cols_2c * ch; \
+				} \
+			} \
+			if (j + 1 == tile_x && end_x + ix + (j > 0) * bcols2 + 1 < d->cols) \
+			{ \
+				end_tile_x = ccv_min(bcols2, d->cols - (ix + (j > 0) * bcols2 + end_x)); \
+				fftw_ptr = (_for_type*)fftw_d + (1 + (i > 0)) * brows2 * cols_2c * ch; \
+				m_ptr = (unsigned char*)ccv_get_dense_matrix_cell(d, iy + (i > 0) * brows2, ix + (j > 0) * bcols2 + end_x, 0); \
+				for (y = 0; y < end_y; y++) \
+				{ \
+					for (x = 0; x < end_tile_x * ch; x++) \
+						_for_set(m_ptr, x, fftw_ptr[x], 0); \
+					m_ptr += d->step; \
+					fftw_ptr += cols_2c * ch; \
+				} \
+			} \
+			if (i + 1 == tile_y && end_y + iy + (i > 0) * brows2 + 1 < d->rows && \
+				j + 1 == tile_x && end_x + ix + (j > 0) * bcols2 + 1 < d->cols) \
+			{ \
+				fftw_ptr = (_for_type*)fftw_d; \
+				m_ptr = (unsigned char*)ccv_get_dense_matrix_cell(d, iy + (i > 0) * brows2 + end_y, ix + (j > 0) * bcols2 + end_x, 0); \
+				for (y = 0; y < end_tile_y; y++) \
+				{ \
+					for (x = 0; x < end_tile_x * ch; x++) \
+						_for_set(m_ptr, x, fftw_ptr[x], 0); \
+					m_ptr += d->step; \
+					fftw_ptr += cols_2c * ch; \
+				} \
+			} \
+		}
+	if (fft_type == CCV_32F)
+	{
+#define fft_execute_dft_r2c(r, c) fftwf_execute_dft_r2c(pf, r, c)
+#define fft_execute_dft_c2r(c, r) fftwf_execute_dft_c2r(pinvf, c, r)
+		ccv_matrix_setter(d->type, ccv_matrix_getter, a->type, for_block, float, fftwf_complex);
+#undef fft_execute_dft_r2c
+#undef fft_execute_dft_c2r
+		fftwf_destroy_plan(pf);
+		fftwf_destroy_plan(pinvf);
+		fftwf_free(fftw_a);
+		fftwf_free(fftw_b);
+		fftwf_free(fftw_d);
+	} else {
+#define fft_execute_dft_r2c(r, c) fftw_execute_dft_r2c(p, r, c)
+#define fft_execute_dft_c2r(c, r) fftw_execute_dft_c2r(pinv, c, r)
+		ccv_matrix_setter(d->type, ccv_matrix_getter, a->type, for_block, double, fftw_complex);
+#undef fft_execute_dft_r2c
+#undef fft_execute_dft_c2r
+		fftw_destroy_plan(p);
+		fftw_destroy_plan(pinv);
+		fftw_free(fftw_a);
+		fftw_free(fftw_b);
+		fftw_free(fftw_d);
+	}
+#undef for_block
+}
+#else
+static void _ccv_filter_kissfft(ccv_dense_matrix_t* a, ccv_dense_matrix_t* b, ccv_dense_matrix_t* d, int padding_pattern)
+{
+	int ch = CCV_GET_CHANNEL(a->type);
+	int fft_type = (CCV_GET_DATA_TYPE(d->type) == CCV_8U || CCV_GET_DATA_TYPE(d->type) == CCV_32F) ? CCV_32F : CCV_64F;
+	int rows = ((ccv_min(a->rows + b->rows - 1, kiss_fftr_next_fast_size_real(b->rows * 3)) + 1) >> 1) << 1;
+	int cols = ((ccv_min(a->cols + b->cols - 1, kiss_fftr_next_fast_size_real(b->cols * 3)) + 1) >> 1) << 1;
+	int ndim[] = {rows, cols};
+	void* kiss_a;
+	void* kiss_b;
+	void* kiss_d;
+	void* kiss_ac;
+	void* kiss_bc;
+	void* kiss_dc;
+	kiss_fftndr_cfg p;
+	kiss_fftndr_cfg pinv;
+	kissf_fftndr_cfg pf;
+	kissf_fftndr_cfg pinvf;
+	if (fft_type == CCV_32F)
+	{
+		pf = kissf_fftndr_alloc(ndim, 2, 0, 0, 0);
+		pinvf = kissf_fftndr_alloc(ndim, 2, 1, 0, 0);
+		kiss_a = ccmalloc(rows * cols * ch * sizeof(kissf_fft_scalar));
+		kiss_b = ccmalloc(rows * cols * ch * sizeof(kissf_fft_scalar));
+		kiss_d = ccmalloc(rows * cols * ch * sizeof(kissf_fft_scalar));
+		kiss_ac = ccmalloc(rows * (cols / 2 + 1) * ch * sizeof(kissf_fft_cpx));
+		kiss_bc = ccmalloc(rows * (cols / 2 + 1) * ch * sizeof(kissf_fft_cpx));
+		kiss_dc = ccmalloc(rows * (cols / 2 + 1) * ch * sizeof(kissf_fft_cpx));
+		memset(kiss_b, 0, rows * cols * ch * sizeof(kissf_fft_scalar));
+	} else {
+		p = kiss_fftndr_alloc(ndim, 2, 0, 0, 0);
+		pinv = kiss_fftndr_alloc(ndim, 2, 1, 0, 0);
+		kiss_a = ccmalloc(rows * cols * ch * sizeof(kiss_fft_scalar));
+		kiss_b = ccmalloc(rows * cols * ch * sizeof(kiss_fft_scalar));
+		kiss_d = ccmalloc(rows * cols * ch * sizeof(kiss_fft_scalar));
+		kiss_ac = ccmalloc(rows * (cols / 2 + 1) * ch * sizeof(kiss_fft_cpx));
+		kiss_bc = ccmalloc(rows * (cols / 2 + 1) * ch * sizeof(kiss_fft_cpx));
+		kiss_dc = ccmalloc(rows * (cols / 2 + 1) * ch * sizeof(kiss_fft_cpx));
+		memset(kiss_b, 0, rows * cols * ch * sizeof(kiss_fft_scalar));
+	}
+	int nch = rows * cols, nchc = rows * (cols / 2 + 1);
+	int i, j, k;
+	unsigned char* m_ptr = b->data.u8;
+	// to flip matrix b is crucial, this problem only shows when I changed to a more sophisticated test case
+#define for_block(_for_type, _for_get) \
+	_for_type* kiss_ptr = (_for_type*)kiss_b + (b->rows - 1) * cols; \
+	for (i = 0; i < b->rows; i++) \
+	{ \
+		for (j = 0; j < b->cols; j++) \
+			for (k = 0; k < ch; k++) \
+				kiss_ptr[k * nch + b->cols - 1 - j] = _for_get(m_ptr, j * ch + k, 0); \
+		kiss_ptr -= cols; \
+		m_ptr += b->step; \
+	}
+	ccv_matrix_typeof(fft_type, ccv_matrix_getter, b->type, for_block);
+#undef for_block
+	if (fft_type == CCV_32F)
+		for (k = 0; k < ch; k++)
+			kissf_fftndr(pf, (kissf_fft_scalar*)kiss_b + nch * k, (kissf_fft_cpx*)kiss_bc + nchc * k);
+	else
+		for (k = 0; k < ch; k++)
+			kiss_fftndr(p, (kiss_fft_scalar*)kiss_b + nch * k, (kiss_fft_cpx*)kiss_bc + nchc * k);
+	/* why a->cols + cols - 2 * (b->cols & ~1) ?
+	 * what we really want is ceiling((a->cols - (b->cols & ~1)) / (cols - (b->cols & ~1)))
+	 * in this case, we strip out paddings on the left/right, and compute how many tiles
+	 * we need. It then be interpreted in the above integer division form */
+	int tile_x = ccv_max(1, (a->cols + cols - 2 * (b->cols & ~1)) / (cols - (b->cols & ~1)));
+	int tile_y = ccv_max(1, (a->rows + rows - 2 * (b->rows & ~1)) / (rows - (b->rows & ~1)));
+	int brows2 = b->rows / 2;
+	int bcols2 = b->cols / 2;
+#define for_block(_for_type, _cpx_type, _for_set, _for_get) \
+	_for_type scale = 1.0 / (rows * cols); \
+	for (i = 0; i < tile_y; i++) \
+		for (j = 0; j < tile_x; j++) \
+		{ \
+			int x, y; \
+			memset(kiss_a, 0, rows * cols * ch * sizeof(_for_type)); \
+			int iy = ccv_min(i * (rows - (b->rows & ~1)), ccv_max(a->rows - rows, 0)); \
+			int ix = ccv_min(j * (cols - (b->cols & ~1)), ccv_max(a->cols - cols, 0)); \
+			_for_type* kiss_ptr = (_for_type*)kiss_a; \
+			int end_y = ccv_min(rows, a->rows - iy); \
+			int end_x = ccv_min(cols, a->cols - ix); \
+			m_ptr = (unsigned char*)ccv_get_dense_matrix_cell(a, iy, ix, 0); \
 			for (y = 0; y < end_y; y++) \
 			{ \
 				for (x = 0; x < end_x; x++) \
-					_for_set(m_ptr, x, fftw_ptr[x], 0); \
+					for (k = 0; k < ch; k++) \
+						kiss_ptr[k * nch + x] = _for_get(m_ptr, x * ch + k, 0); \
+				kiss_ptr += cols; \
+				m_ptr += a->step; \
+			} \
+			for (k = 0; k < ch; k++) \
+				fft_ndr((_for_type*)kiss_a + nch * k, (_cpx_type*)kiss_ac + nchc * k); \
+			_cpx_type* fft_ac = (_cpx_type*)kiss_ac; \
+			_cpx_type* fft_bc = (_cpx_type*)kiss_bc; \
+			_cpx_type* fft_dc = (_cpx_type*)kiss_dc; \
+			for (x = 0; x < rows * ch * (cols / 2 + 1); x++) \
+			{ \
+				fft_dc[x].r = (fft_ac[x].r * fft_bc[x].r - fft_ac[x].i * fft_bc[x].i) * scale; \
+				fft_dc[x].i = (fft_ac[x].i * fft_bc[x].r + fft_ac[x].r * fft_bc[x].i) * scale; \
+			} \
+			for (k = 0; k < ch; k++) \
+				fft_ndri((_cpx_type*)kiss_dc + nchc * k, (_for_type*)kiss_d + nch * k); \
+			kiss_ptr = (_for_type*)kiss_d + (1 + (i > 0)) * brows2 * cols + (1 + (j > 0)) * bcols2; \
+			end_y = ccv_min(d->rows - (iy + (i > 0) * brows2), \
+							(rows - (b->rows & ~1)) + (i == 0) * brows2); \
+			end_x = ccv_min(d->cols - (ix + (j > 0) * bcols2), \
+							(cols - (b->cols & ~1)) + (j == 0) * bcols2); \
+			m_ptr = (unsigned char*)ccv_get_dense_matrix_cell(d, iy + (i > 0) * brows2, ix + (j > 0) * bcols2, 0); \
+			for (y = 0; y < end_y; y++) \
+			{ \
+				for (x = 0; x < end_x; x++) \
+					for (k = 0; k < ch; k++) \
+						_for_set(m_ptr, x * ch + k, kiss_ptr[k * nch + x], 0); \
 				m_ptr += d->step; \
-				fftw_ptr += cols; \
+				kiss_ptr += cols; \
+			} \
+			int end_tile_y, end_tile_x; \
+			/* handle edge cases: */ \
+			if (i + 1 == tile_y && end_y + iy + (i > 0) * brows2 + 1 < d->rows) \
+			{ \
+				end_tile_y = ccv_min(brows2, d->rows - (iy + (i > 0) * brows2 + end_y)); \
+				kiss_ptr = (_for_type*)kiss_d + (1 + (j > 0)) * bcols2; \
+				m_ptr = (unsigned char*)ccv_get_dense_matrix_cell(d, iy + (i > 0) * brows2 + end_y, ix + (j > 0) * bcols2, 0); \
+				for (y = 0; y < end_tile_y; y++) \
+				{ \
+					for (x = 0; x < end_x; x++) \
+						for (k = 0; k < ch; k++) \
+							_for_set(m_ptr, x * ch + k, kiss_ptr[k * nch + x], 0); \
+					m_ptr += d->step; \
+					kiss_ptr += cols; \
+				} \
+			} \
+			if (j + 1 == tile_x && end_x + ix + (j > 0) * bcols2 + 1 < d->cols) \
+			{ \
+				end_tile_x = ccv_min(bcols2, d->cols - (ix + (j > 0) * bcols2 + end_x)); \
+				kiss_ptr = (_for_type*)kiss_d + (1 + (i > 0)) * brows2 * cols; \
+				m_ptr = (unsigned char*)ccv_get_dense_matrix_cell(d, iy + (i > 0) * brows2, ix + (j > 0) * bcols2 + end_x, 0); \
+				for (y = 0; y < end_y; y++) \
+				{ \
+					for (x = 0; x < end_tile_x; x++) \
+						for (k = 0; k < ch; k++) \
+							_for_set(m_ptr, x * ch + k, kiss_ptr[k * nch + x], 0); \
+					m_ptr += d->step; \
+					kiss_ptr += cols; \
+				} \
+			} \
+			if (i + 1 == tile_y && end_y + iy + (i > 0) * brows2 + 1 < d->rows && \
+				j + 1 == tile_x && end_x + ix + (j > 0) * bcols2 + 1 < d->cols) \
+			{ \
+				kiss_ptr = (_for_type*)kiss_d; \
+				m_ptr = (unsigned char*)ccv_get_dense_matrix_cell(d, iy + (i > 0) * brows2 + end_y, ix + (j > 0) * bcols2 + end_x, 0); \
+				for (y = 0; y < end_tile_y; y++) \
+				{ \
+					for (x = 0; x < end_tile_x; x++) \
+						for (k = 0; k < ch; k++) \
+							_for_set(m_ptr, x * ch + k, kiss_ptr[k * nch + x], 0); \
+					m_ptr += d->step; \
+					kiss_ptr += cols; \
+				} \
 			} \
 		}
-	ccv_matrix_setter(d->type, ccv_matrix_getter, a->type, for_block);
+	if (fft_type == CCV_32F)
+	{
+#define fft_ndr(r, c) kissf_fftndr(pf, r, c)
+#define fft_ndri(c, r) kissf_fftndri(pinvf, c, r)
+		ccv_matrix_setter(d->type, ccv_matrix_getter, a->type, for_block, kissf_fft_scalar, kissf_fft_cpx);
+#undef fft_ndr
+#undef fft_ndri
+		kissf_fft_free(pf);
+		kissf_fft_free(pinvf);
+	} else {
+#define fft_ndr(r, c) kiss_fftndr(p, r, c)
+#define fft_ndri(c, r) kiss_fftndri(pinv, c, r)
+		ccv_matrix_setter(d->type, ccv_matrix_getter, a->type, for_block, kiss_fft_scalar, kiss_fft_cpx);
+#undef fft_ndr
+#undef fft_ndri
+		kiss_fft_free(p);
+		kiss_fft_free(pinv);
+	}
 #undef for_block
-	fftw_destroy_plan(p);
-	fftw_destroy_plan(pinv);
-	fftw_free(fftw_a);
-	fftw_free(fftw_b);
-	fftw_free(fftw_d);
-	fftw_free(fftw_dc);
+	ccfree(kiss_dc);
+	ccfree(kiss_bc);
+	ccfree(kiss_ac);
+	ccfree(kiss_d);
+	ccfree(kiss_b);
+	ccfree(kiss_a);
 }
 #endif
 
-void _ccv_filter_direct_8u(ccv_dense_matrix_t* a, ccv_dense_matrix_t* b, ccv_dense_matrix_t* d)
+void _ccv_filter_direct_8u(ccv_dense_matrix_t* a, ccv_dense_matrix_t* b, ccv_dense_matrix_t* d, int padding_pattern)
 {
 	int i, j, y, x, k;
 	int nz = b->rows * b->cols;
-	int* coeff = (int*)alloca(nz * sizeof(int));
-	int* cx = (int*)alloca(nz * sizeof(int));
-	int* cy = (int*)alloca(nz * sizeof(int));
+	int* coeff = (int*)ccmalloc(nz * sizeof(int));
+	int* cx = (int*)ccmalloc(nz * sizeof(int));
+	int* cy = (int*)ccmalloc(nz * sizeof(int));
 	int scale = 1 << 14;
 	nz = 0;
 	for (i = 0; i < b->rows; i++)
 		for (j = 0; j < b->cols; j++)
 		{
-			coeff[nz] = (int)(ccv_get_dense_matrix_cell_value(b, i, j) * scale + 0.5);
+			coeff[nz] = (int)(ccv_get_dense_matrix_cell_value(b, i, j, 0) * scale + 0.5);
 			if (coeff[nz] == 0)
 				continue;
 			cy[nz] = i;
@@ -594,9 +863,9 @@ void _ccv_filter_direct_8u(ccv_dense_matrix_t* a, ccv_dense_matrix_t* b, ccv_den
 	/* the padding pattern is different from FFT: |aa{BORDER}|abcd|{BORDER}dd| */
 	for (i = 0; i < pa->rows; i++)
 		for (j = 0; j < pa->cols; j++)
-			pa->data.ptr[i * pa->step + j] = a->data.ptr[ccv_clamp(i - b->rows / 2, 0, a->rows - 1) * a->step + ccv_clamp(j - b->cols / 2, 0, a->cols - 1)];
-	unsigned char* m_ptr = d->data.ptr;
-	unsigned char* a_ptr = pa->data.ptr;
+			pa->data.u8[i * pa->step + j] = a->data.u8[ccv_clamp(i - b->rows / 2, 0, a->rows - 1) * a->step + ccv_clamp(j - b->cols / 2, 0, a->cols - 1)];
+	unsigned char* m_ptr = d->data.u8;
+	unsigned char* a_ptr = pa->data.u8;
 	/* 0.5 denote the overhead for indexing x and y */
 	if (nz < b->rows * b->cols * 0.75)
 	{
@@ -617,7 +886,7 @@ void _ccv_filter_direct_8u(ccv_dense_matrix_t* a, ccv_dense_matrix_t* b, ccv_den
 		for (i = 0; i < b->rows; i++)
 			for (j = 0; j < b->cols; j++)
 			{
-				coeff[k] = (int)(ccv_get_dense_matrix_cell_value(b, i, j) * scale + 0.5);
+				coeff[k] = (int)(ccv_get_dense_matrix_cell_value(b, i, j, 0) * scale + 0.5);
 				k++;
 			}
 		for (i = 0; i < d->rows; i++)
@@ -642,16 +911,17 @@ void _ccv_filter_direct_8u(ccv_dense_matrix_t* a, ccv_dense_matrix_t* b, ccv_den
 		}
 	}
 	ccv_matrix_free(pa);
+	ccfree(coeff);
+	ccfree(cx);
+	ccfree(cy);
 }
 
-void ccv_filter(ccv_matrix_t* a, ccv_matrix_t* b, ccv_matrix_t** d, int type)
+void ccv_filter(ccv_dense_matrix_t* a, ccv_dense_matrix_t* b, ccv_dense_matrix_t** d, int type, int padding_pattern)
 {
-	ccv_dense_matrix_t* da = ccv_get_dense_matrix(a);
-	ccv_dense_matrix_t* db = ccv_get_dense_matrix(b);
-	uint64_t sig = (da->sig == 0 || db->sig == 0) ? 0 : ccv_matrix_generate_signature("ccv_filter", 10, da->sig, db->sig, 0);
-	type = (type == 0) ? CCV_GET_DATA_TYPE(da->type) | CCV_GET_CHANNEL(da->type) : CCV_GET_DATA_TYPE(type) | CCV_GET_CHANNEL(da->type);
-	ccv_dense_matrix_t* dd = *d = ccv_dense_matrix_renew(*d, da->rows, da->cols, CCV_ALL_DATA_TYPE | CCV_GET_CHANNEL(da->type), type, sig);
-	ccv_cache_return(dd, );
+	ccv_declare_matrix_signature(sig, a->sig != 0 && b->sig != 0, ccv_sign_with_literal("ccv_filter"), a->sig, b->sig, 0);
+	type = (type == 0) ? CCV_GET_DATA_TYPE(a->type) | CCV_GET_CHANNEL(a->type) : CCV_GET_DATA_TYPE(type) | CCV_GET_CHANNEL(a->type);
+	ccv_dense_matrix_t* dd = *d = ccv_dense_matrix_renew(*d, a->rows, a->cols, CCV_ALL_DATA_TYPE | CCV_GET_CHANNEL(a->type), type, sig);
+	ccv_matrix_return_if_cached(, dd);
 
 	/* 15 is the constant to indicate the high cost of FFT (even with O(nlog(m)) for
 	 * integer image.
@@ -661,30 +931,201 @@ void ccv_filter(ccv_matrix_t* a, ccv_matrix_t* b, ccv_matrix_t** d, int type)
 	 * to do FFT for the whole image. The image can be divided to n/m part, and
 	 * the FFT itself is O(mlog(m)), so, the convolution process has time complexity
 	 * of O(nlog(m)) */
-	if ((db->rows * db->cols < (log((double)(db->rows * db->cols)) + 1) * 15) && (da->type & CCV_8U))
+	if ((b->rows * b->cols < (log((double)(b->rows * b->cols)) + 1) * 15) && (a->type & CCV_8U))
 	{
-		_ccv_filter_direct_8u(da, db, dd);
+		_ccv_filter_direct_8u(a, b, dd, padding_pattern);
 	} else {
 #ifdef HAVE_FFTW3
-		_ccv_filter_fftw(da, db, dd);
+		_ccv_filter_fftw(a, b, dd, padding_pattern);
+#else
+		_ccv_filter_kissfft(a, b, dd, padding_pattern);
 #endif
 	}
 }
 
 void ccv_filter_kernel(ccv_dense_matrix_t* x, ccv_filter_kernel_f func, void* data)
 {
-	int i, j;
-	unsigned char* m_ptr = x->data.ptr;
+	int i, j, k, ch = CCV_GET_CHANNEL(x->type);
+	unsigned char* m_ptr = x->data.u8;
 	double rows_2 = (x->rows - 1) * 0.5;
 	double cols_2 = (x->cols - 1) * 0.5;
 #define for_block(_, _for_set) \
 	for (i = 0; i < x->rows; i++) \
 	{ \
 		for (j = 0; j < x->cols; j++) \
-			_for_set(m_ptr, j, func(j - cols_2, i - rows_2, data), 0); \
+		{ \
+			double result = func(j - cols_2, i - rows_2, data); \
+			for (k = 0; k < ch; k++) \
+				_for_set(m_ptr, j * ch + k, result, 0); \
+		} \
 		m_ptr += x->step; \
 	}
 	ccv_matrix_setter(x->type, for_block);
 #undef for_block
-	ccv_matrix_generate_signature((char*) x->data.ptr, x->rows * x->step, x->sig, 0);
+	ccv_matrix_generate_signature((char*) x->data.u8, x->rows * x->step, x->sig, 0);
+}
+
+void ccv_distance_transform(ccv_dense_matrix_t* a, ccv_dense_matrix_t** b, int type, ccv_dense_matrix_t** x, int x_type, ccv_dense_matrix_t** y, int y_type, double dx, double dy, double dxx, double dyy, int flag)
+{
+	assert(!(flag & CCV_L2_NORM) && (flag & CCV_GSEDT));
+	ccv_declare_matrix_signature(sig, a->sig != 0, ccv_sign_with_format(64, "ccv_distance_transform(%lf,%lf,%lf,%lf,%d)", dx, dy, dxx, dyy, flag), a->sig, 0);
+	type = (CCV_GET_DATA_TYPE(type) == CCV_64F || CCV_GET_DATA_TYPE(a->type) == CCV_64F || CCV_GET_DATA_TYPE(a->type) == CCV_64S) ? CCV_GET_CHANNEL(a->type) | CCV_64F : CCV_GET_CHANNEL(a->type) | CCV_32F;
+	ccv_dense_matrix_t* db = *b = ccv_dense_matrix_renew(*b, a->rows, a->cols, CCV_ALL_DATA_TYPE | CCV_GET_CHANNEL(a->type), type, sig);
+	ccv_dense_matrix_t* mx = 0;
+	ccv_dense_matrix_t* my = 0;
+	if (x != 0)
+	{
+		ccv_declare_matrix_signature(xsig, a->sig != 0, ccv_sign_with_format(64, "ccv_distance_transform_x(%lf,%lf,%lf,%lf,%d)", dx, dy, dxx, dyy, flag), a->sig, 0);
+		mx = *x = ccv_dense_matrix_renew(*x, a->rows, a->cols, CCV_32S | CCV_C1, CCV_32S | CCV_C1, xsig);
+	}
+	if (y != 0)
+	{
+		ccv_declare_matrix_signature(ysig, a->sig != 0, ccv_sign_with_format(64, "ccv_distance_transform_y(%lf,%lf,%lf,%lf,%d)", dx, dy, dxx, dyy, flag), a->sig, 0);
+		my = *y = ccv_dense_matrix_renew(*y, a->rows, a->cols, CCV_32S | CCV_C1, CCV_32S | CCV_C1, ysig);
+	}
+	ccv_matrix_return_if_cached(, db, mx, my);
+	int i, j, k;
+	unsigned char* a_ptr = a->data.u8;
+	unsigned char* b_ptr = db->data.u8;
+	int* v = (int*)alloca(sizeof(int) * ccv_max(db->rows, db->cols));
+	unsigned char* c_ptr = (unsigned char*)alloca(CCV_GET_DATA_TYPE_SIZE(db->type) * db->rows);
+	int* x_ptr = mx ? mx->data.i32 : 0;
+	int* y_ptr = my ? my->data.i32 : 0;
+#define for_block(_for_max, _for_type_b, _for_set_b, _for_get_b, _for_get_a) \
+	_for_type_b _dx = dx, _dy = dy, _dxx = dxx, _dyy = dyy; \
+	_for_type_b* z = (_for_type_b*)alloca(sizeof(_for_type_b) * (ccv_max(db->rows, db->cols) + 1)); \
+	if (_dxx > 1e-6) \
+	{ \
+		for (i = 0; i < a->rows; i++) \
+		{ \
+			k = 0; \
+			v[0] = 0; \
+			z[0] = -_for_max; \
+			z[1] = _for_max; \
+			for (j = 1; j < a->cols; j++) \
+			{ \
+				_for_type_b s; \
+				for (;;) \
+				{ \
+					s = ((SGN _for_get_a(a_ptr, j, 0) + _dxx * j * j - _dx * j) - (SGN _for_get_a(a_ptr, v[k], 0) + _dxx * v[k] * v[k] - _dx * v[k])) / (2.0 * _dxx * (j - v[k])); \
+					if (s > z[k]) break; \
+					--k; \
+				} \
+				++k; \
+				v[k] = j; \
+				z[k] = s; \
+				z[k + 1] = db->cols * 1e5; \
+			} \
+			k = 0; \
+			if (mx) \
+			{ \
+				for (j = 0; j < a->cols; j++) \
+				{ \
+					while (z[k + 1] < j) \
+						++k; \
+					_for_set_b(b_ptr, j, _dx * (j - v[k]) + _dxx * (j - v[k]) * (j - v[k]) SGN _for_get_a(a_ptr, v[k], 0), 0); \
+					x_ptr[j] = j - v[k]; \
+				} \
+				x_ptr += mx->cols; \
+			} else { \
+				for (j = 0; j < a->cols; j++) \
+				{ \
+					while (z[k + 1] < j) \
+						++k; \
+					_for_set_b(b_ptr, j, _dx * (j - v[k]) + _dxx * (j - v[k]) * (j - v[k]) SGN _for_get_a(a_ptr, v[k], 0), 0); \
+				} \
+			} \
+			a_ptr += a->step; \
+			b_ptr += db->step; \
+		} \
+	} else { /* above algorithm cannot handle dxx == 0 properly, below is special casing for that */ \
+		assert(mx == 0); \
+		for (i = 0; i < a->rows; i++) \
+		{ \
+			for (j = 0; j < a->cols; j++) \
+				_for_set_b(b_ptr, j, SGN _for_get_a(a_ptr, j, 0), 0); \
+			for (j = 1; j < a->cols; j++) \
+				_for_set_b(b_ptr, j, ccv_min(_for_get_b(b_ptr, j, 0), _for_get_b(b_ptr, j - 1, 0) + _dx), 0); \
+			for (j = a->cols - 2; j >= 0; j--) \
+				_for_set_b(b_ptr, j, ccv_min(_for_get_b(b_ptr, j, 0), _for_get_b(b_ptr, j + 1, 0) - _dx), 0); \
+			a_ptr += a->step; \
+			b_ptr += db->step; \
+		} \
+	} \
+	b_ptr = db->data.u8; \
+	if (_dyy > 1e-6) \
+	{ \
+		for (j = 0; j < db->cols; j++) \
+		{ \
+			for (i = 0; i < db->rows; i++) \
+				_for_set_b(c_ptr, i, _for_get_b(b_ptr + i * db->step, j, 0), 0); \
+			k = 0; \
+			v[0] = 0; \
+			z[0] = -_for_max; \
+			z[1] = _for_max; \
+			for (i = 1; i < db->rows; i++) \
+			{ \
+				_for_type_b s; \
+				for (;;) \
+				{ \
+					s = ((_for_get_b(c_ptr, i, 0) + _dyy * i * i - _dy * i) - (_for_get_b(c_ptr, v[k], 0) + _dyy * v[k] * v[k] - _dy * v[k])) / (2.0 * _dyy * (i - v[k])); \
+					if (s > z[k]) break; \
+					--k; \
+				} \
+				++k; \
+				v[k] = i; \
+				z[k] = s; \
+				z[k + 1] = db->rows * 1e5; \
+			} \
+			k = 0; \
+			if (my) \
+			{ \
+				for (i = 0; i < db->rows; i++) \
+				{ \
+					while (z[k + 1] < i) \
+						++k; \
+					_for_set_b(b_ptr + i * db->step, j, _dy * (i - v[k]) + _dyy * (i - v[k]) * (i - v[k]) + _for_get_b(c_ptr, v[k], 0), 0); \
+					y_ptr[i * my->cols] = i - v[k]; \
+				} \
+				++y_ptr; \
+			} else { \
+				for (i = 0; i < db->rows; i++) \
+				{ \
+					while (z[k + 1] < i) \
+						++k; \
+					_for_set_b(b_ptr + i * db->step, j, _dy * (i - v[k]) + _dyy * (i - v[k]) * (i - v[k]) + _for_get_b(c_ptr, v[k], 0), 0); \
+				} \
+			} \
+		} \
+	} else { \
+		assert(my == 0); \
+		for (j = 0; j < db->cols; j++) \
+		{ \
+			for (i = 1; i < db->rows; i++) \
+				_for_set_b(b_ptr + i * db->step, j, ccv_min(_for_get_b(b_ptr + i * db->step, j, 0), _for_get_b(b_ptr + (i - 1) * db->step, j, 0) + _dy), 0); \
+			for (i = db->rows - 2; i >= 0; i--) \
+				_for_set_b(b_ptr + i * db->step, j, ccv_min(_for_get_b(b_ptr + i * db->step, j, 0), _for_get_b(b_ptr + (i + 1) * db->step, j, 0) - _dy), 0); \
+		} \
+	}
+	if (flag & CCV_NEGATIVE)
+	{
+#define SGN -
+		if (db->type & CCV_64F)
+		{
+			ccv_matrix_typeof_setter_getter(db->type, ccv_matrix_getter, a->type, for_block, DBL_MAX);
+		} else {
+			ccv_matrix_typeof_setter_getter(db->type, ccv_matrix_getter, a->type, for_block, FLT_MAX);
+		}
+#undef SGN
+	} else {
+#define SGN +
+		if (db->type & CCV_64F)
+		{
+			ccv_matrix_typeof_setter_getter(db->type, ccv_matrix_getter, a->type, for_block, DBL_MAX);
+		} else {
+			ccv_matrix_typeof_setter_getter(db->type, ccv_matrix_getter, a->type, for_block, FLT_MAX);
+		}
+#undef SGN
+	}
+#undef for_block
 }

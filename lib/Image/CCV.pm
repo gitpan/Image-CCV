@@ -4,7 +4,7 @@ require DynaLoader;
 use Carp qw(croak);
 use vars qw($VERSION @EXPORT @ISA);
 
-$VERSION = '0.04'; 
+$VERSION = '0.05'; 
 
 @EXPORT = qw(sift detect_faces );
 
@@ -221,7 +221,7 @@ L<http://perlmonks.org/>.
 
 I've given one lightning talk about this module at Perl conferences:
 
-L<German Perl Workshop, German|http://corion.net/talks/Image-CCV-lightning/Image-CCV-lightning-talk.de.html>
+L<German Perl Workshop, German|http://corion.net/talks/Image-CCV-lightning-talk/image-ccv-lightning-talk.de.html>
 
 =head1 BUG TRACKER
 

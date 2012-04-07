@@ -144,7 +144,7 @@ static int _ccv_jpeg_load_dht(struct jpeg_decompress_struct *info, unsigned char
  * based on a message of Laurent Pinchart on the video4linux mailing list
  ***************************************************************************/
 
-static void _ccv_unserialize_jpeg_fd(FILE* in, ccv_dense_matrix_t** x, int type)
+static void _ccv_read_jpeg_fd(FILE* in, ccv_dense_matrix_t** x, int type)
 {
 	struct jpeg_decompress_struct cinfo;
 	struct ccv_jpeg_error_mgr_t jerr;
@@ -190,7 +190,7 @@ static void _ccv_unserialize_jpeg_fd(FILE* in, ccv_dense_matrix_t** x, int type)
 	row_stride = cinfo.output_width * 4;
 	buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
 
-	unsigned char* ptr = im->data.ptr;
+	unsigned char* ptr = im->data.u8;
 	if(cinfo.num_components != 4)
 	{
 		if ((cinfo.num_components > 1 && CCV_GET_CHANNEL(im->type) == CCV_C3) || (cinfo.num_components == 1 && CCV_GET_CHANNEL(im->type) == CCV_C1))
@@ -277,7 +277,7 @@ static void _ccv_unserialize_jpeg_fd(FILE* in, ccv_dense_matrix_t** x, int type)
 	jpeg_destroy_decompress(&cinfo);
 }
 
-static void _ccv_serialize_jpeg_fd(ccv_dense_matrix_t* mat, FILE* fd, void* conf)
+static void _ccv_write_jpeg_fd(ccv_dense_matrix_t* mat, FILE* fd, void* conf)
 {
 	struct jpeg_compress_struct cinfo;
 	struct ccv_jpeg_error_mgr_t jerr;
@@ -301,7 +301,7 @@ static void _ccv_serialize_jpeg_fd(ccv_dense_matrix_t* mat, FILE* fd, void* conf
 		jpeg_set_quality(&cinfo, *(int*)conf, TRUE);
 	jpeg_start_compress(&cinfo, TRUE);
 	int i;
-	unsigned char* ptr = mat->data.ptr;
+	unsigned char* ptr = mat->data.u8;
 	for (i = 0; i < mat->rows; i++)
 	{
 		jpeg_write_scanlines(&cinfo, &ptr, 1);

@@ -14,10 +14,8 @@ int main(int argc, char** argv)
 	ccv_enable_default_cache();
 	ccv_dense_matrix_t* object = 0;
 	ccv_dense_matrix_t* image = 0;
-	ccv_unserialize(argv[1], &object, CCV_SERIAL_GRAY | CCV_SERIAL_ANY_FILE);
-	assert(object);
-	ccv_unserialize(argv[2], &image, CCV_SERIAL_GRAY | CCV_SERIAL_ANY_FILE);
-	assert(image);
+	ccv_read(argv[1], &object, CCV_IO_GRAY | CCV_IO_ANY_FILE);
+	ccv_read(argv[2], &image, CCV_IO_GRAY | CCV_IO_ANY_FILE);
 	unsigned int elapsed_time = get_current_time();
 	ccv_sift_param_t param;
 	param.noctaves = 3;
@@ -37,12 +35,12 @@ int main(int argc, char** argv)
 	int match = 0;
 	for (i = 0; i < obj_keypoints->rnum; i++)
 	{
-		float* odesc = obj_desc->data.fl + i * 128;
+		float* odesc = obj_desc->data.f32 + i * 128;
 		int minj = -1;
 		double mind = 1e6, mind2 = 1e6;
 		for (j = 0; j < image_keypoints->rnum; j++)
 		{
-			float* idesc = image_desc->data.fl + j * 128;
+			float* idesc = image_desc->data.f32 + j * 128;
 			double d = 0;
 			for (k = 0; k < 128; k++)
 			{

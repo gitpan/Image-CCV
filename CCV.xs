@@ -9,41 +9,6 @@
 #include "INLINE_CCV.h"
 #include "ccv-src/lib/ccv.h"
 
-void
-myccv_detect_faces(char* filename, char* training_data)
-{
-	Inline_Stack_Vars;
-	Inline_Stack_Reset;
-	int i;
-	ccv_enable_default_cache();
-	ccv_dense_matrix_t* image = 0;
-	ccv_bbf_classifier_cascade_t* cascade = ccv_load_bbf_classifier_cascade(training_data);
-	ccv_unserialize(filename, &image, CCV_SERIAL_GRAY | CCV_SERIAL_ANY_FILE);
-	if (image != 0)
-	{
-		ccv_bbf_param_t params = { .interval = 5, .min_neighbors = 2, .flags = 0, .size = ccv_size(24, 24) };
-		ccv_array_t* seq = ccv_bbf_detect_objects(image, &cascade, 1, params);
-		for (i = 0; i < seq->rnum; i++)
-		{
-			ccv_comp_t* comp = (ccv_comp_t*)ccv_array_get(seq, i);
-			// Create the new 5-item array
-			AV* res = newAV();
-			av_push( res, newSVnv( comp->rect.x ));
-			av_push( res, newSVnv( comp->rect.y ));
-			av_push( res, newSVnv( comp->rect.width ));
-			av_push( res, newSVnv( comp->rect.height ));
-			av_push( res, newSVnv( comp->confidence ));
-                        Inline_Stack_Push(sv_2mortal(newRV_noinc((SV*) res)));
-		}
-		ccv_array_free(seq);
-		ccv_matrix_free(image);
-	}
-	ccv_bbf_classifier_cascade_free(cascade);
-	ccv_disable_cache();
-	Inline_Stack_Done;
-	return;
-}
-
 ccv_sift_param_t* myccv_pack_parameters(int noctaves, int nlevels, int up2x, int edge_threshold, int norm_threshold, int peak_threshold)
 {
 	ccv_sift_param_t* res;
@@ -86,7 +51,7 @@ void myccv_get_descriptor(char* file, ccv_sift_param_t* param)
 	Inline_Stack_Reset;
 
 	ccv_dense_matrix_t* data = 0;
-	ccv_unserialize(file, &data, CCV_SERIAL_GRAY | CCV_SERIAL_ANY_FILE);
+	ccv_read(file, &data, CCV_IO_GRAY | CCV_IO_ANY_FILE);
 	assert(data);
 	
 	ccv_array_t* keypoints = 0;
@@ -109,9 +74,9 @@ void myccv_sift(char* object_file, char* scene_file, ccv_sift_param_t* param)
 	ccv_enable_default_cache();
 	ccv_dense_matrix_t* object = 0;
 	ccv_dense_matrix_t* image = 0;
-	ccv_unserialize(object_file, &object, CCV_SERIAL_GRAY | CCV_SERIAL_ANY_FILE);
+	ccv_read(object_file, &object, CCV_IO_GRAY | CCV_IO_ANY_FILE);
 	assert(object);
-	ccv_unserialize(scene_file, &image, CCV_SERIAL_GRAY | CCV_SERIAL_ANY_FILE);
+	ccv_read(scene_file, &image, CCV_IO_GRAY | CCV_IO_ANY_FILE);
 	assert(image);
 	ccv_array_t* obj_keypoints = 0;
 	ccv_dense_matrix_t* obj_desc = 0;
@@ -123,12 +88,12 @@ void myccv_sift(char* object_file, char* scene_file, ccv_sift_param_t* param)
 	int match = 0;
 	for (i = 0; i < obj_keypoints->rnum; i++)
 	{
-		float* odesc = obj_desc->data.fl + i * 128;
+		float* odesc = obj_desc->data.f32 + i * 128;
 		int minj = -1;
 		double mind = 1e6, mind2 = 1e6;
 		for (j = 0; j < image_keypoints->rnum; j++)
 		{
-			float* idesc = image_desc->data.fl + j * 128;
+			float* idesc = image_desc->data.f32 + j * 128;
 			double d = 0;
 			for (k = 0; k < 128; k++)
 			{
@@ -184,7 +149,37 @@ myccv_detect_faces (filename, training_data)
 	I32* temp;
 	PPCODE:
 	temp = PL_markstack_ptr++;
-	myccv_detect_faces(filename, training_data);
+	Inline_Stack_Vars;
+	Inline_Stack_Reset;
+	int i;
+	ccv_enable_default_cache();
+	ccv_dense_matrix_t* image = 0;
+	/* // TODO: Make the cascade accessible from the outside */
+	ccv_bbf_classifier_cascade_t* cascade = ccv_load_bbf_classifier_cascade(training_data);
+	ccv_read(filename, &image, CCV_IO_GRAY | CCV_IO_ANY_FILE);
+	if (image != 0)
+	{
+		/* TODO: Make the BBF parameters accessible from the outside */
+		ccv_bbf_param_t params = { .interval = 5, .min_neighbors = 2, .flags = 0, .size = ccv_size(24, 24) };
+		ccv_array_t* seq = ccv_bbf_detect_objects(image, &cascade, 1, params);
+		for (i = 0; i < seq->rnum; i++)
+		{
+			ccv_comp_t* comp = (ccv_comp_t*)ccv_array_get(seq, i);
+			/* Create the new 5-item array */
+			AV* res = newAV();
+			av_push( res, newSVnv( comp->rect.x ));
+			av_push( res, newSVnv( comp->rect.y ));
+			av_push( res, newSVnv( comp->rect.width ));
+			av_push( res, newSVnv( comp->rect.height ));
+			av_push( res, newSVnv( comp->confidence ));
+                        Inline_Stack_Push(sv_2mortal(newRV_noinc((SV*) res)));
+		}
+		ccv_array_free(seq);
+		ccv_matrix_free(image);
+	}
+	ccv_bbf_classifier_cascade_free(cascade);
+	ccv_disable_cache();
+	Inline_Stack_Done;
 	if (PL_markstack_ptr != temp) {
           /* truly void, because dXSARGS not invoked */
 	  PL_markstack_ptr = temp;
