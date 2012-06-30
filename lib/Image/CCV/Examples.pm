@@ -1,11 +1,11 @@
-package WWW::Mechanize::Firefox::Examples;
+package Image::CCV::Examples;
 
 ###############################################################################
 #
-# Examples - WWW::Mechanize::Firefox examples.
+# Examples - Image::CCVW examples.
 #
 # A documentation only module showing the examples that are
-# included in the WWW::Mechanize::Firefox distribution. This
+# included in the Image::CCV distribution. This
 # file was generated automatically via the gen_examples_pod.pl
 # program that is also included in the examples directory.
 #
@@ -16,7 +16,7 @@ package WWW::Mechanize::Firefox::Examples;
 
 use strict;
 use vars qw($VERSION);
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 1;
 
@@ -26,19 +26,19 @@ __END__
 
 =head1 NAME
 
-Examples - WWW::Mechanize::Firefox example programs.
+Examples - Image::CCV example programs.
 
 =head1 DESCRIPTION
 
 This is a documentation only module showing the examples that are
-included in the L<WWW::Mechanize::Firefox> distribution.
+included in the L<Image::CCV> distribution.
 
 This file was auto-generated via the C<gen_examples_pod.pl>
 program that is also included in the examples directory.
 
 =head1 Example programs
 
-The following is a list of the 3 example programs that are included in the WWW::Mechanize::Firefox distribution.
+The following is a list of the 3 example programs that are included in the Image::CCV distribution.
 
 =over
 
@@ -62,7 +62,7 @@ The following is a list of the 3 example programs that are included in the WWW::
     use Image::CCV qw(detect_faces);
     
     use vars qw($VERSION);
-    $VERSION = '0.05';
+    $VERSION = '0.06';
     
     =head1 NAME
     
@@ -203,7 +203,7 @@ The following is a list of the 3 example programs that are included in the WWW::
         }
     }
 
-Download this example: L<http://cpansearch.perl.org/src/CORION/WWW-Mechanize-Firefox-0.05/examples/facecrop.pl>
+Download this example: L<http://cpansearch.perl.org/src/CORION/Image-CCV-0.06/examples/facecrop.pl>
 
 =head2 Example: facetest.pl
 
@@ -260,7 +260,7 @@ Download this example: L<http://cpansearch.perl.org/src/CORION/WWW-Mechanize-Fir
         }
     }
 
-Download this example: L<http://cpansearch.perl.org/src/CORION/WWW-Mechanize-Firefox-0.05/examples/facetest.pl>
+Download this example: L<http://cpansearch.perl.org/src/CORION/Image-CCV-0.06/examples/facetest.pl>
 
 =head2 Example: sifttest.pl
 
@@ -274,7 +274,7 @@ $out->rubthrough(
     use Image::CCV qw(sift);
     
     use vars qw($VERSION);
-    $VERSION = '0.05';
+    $VERSION = '0.06';
     
     my $scene  = "images/IMG_1229_bw_small.png";
     my $object = "images/IMG_1230_bw_sofa.png";
@@ -331,7 +331,7 @@ $out->rubthrough(
     $out->write( file => 'out.png' )
         or die $out->errstr;
 
-Download this example: L<http://cpansearch.perl.org/src/CORION/WWW-Mechanize-Firefox-0.05/examples/sifttest.pl>
+Download this example: L<http://cpansearch.perl.org/src/CORION/Image-CCV-0.06/examples/sifttest.pl>
 
 =head1 AUTHOR
 

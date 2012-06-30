@@ -205,6 +205,8 @@ typedef struct {
 ccv_dense_matrix_t* ccv_dense_matrix_renew(ccv_dense_matrix_t* x, int rows, int cols, int types, int prefer_type, uint64_t sig);
 ccv_dense_matrix_t* ccv_dense_matrix_new(int rows, int cols, int type, void* data, uint64_t sig);
 ccv_dense_matrix_t ccv_dense_matrix(int rows, int cols, int type, void* data, uint64_t sig);
+void ccv_make_matrix_mutable(ccv_matrix_t* mat);
+void ccv_make_matrix_immutable(ccv_matrix_t* mat);
 ccv_sparse_matrix_t* ccv_sparse_matrix_new(int rows, int cols, int type, int major, uint64_t sig);
 void ccv_matrix_free_immediately(ccv_matrix_t* mat);
 void ccv_matrix_free(ccv_matrix_t* mat);
@@ -300,13 +302,18 @@ enum {
 	CCV_PADDING_MIRROR = 0x04,
 };
 
+enum {
+	CCV_SIGNED = 0x00,
+	CCV_UNSIGNED = 0x01,
+};
+
 double ccv_norm(ccv_matrix_t* mat, int type);
 double ccv_normalize(ccv_matrix_t* a, ccv_matrix_t** b, int btype, int flag);
 void ccv_sat(ccv_dense_matrix_t* a, ccv_dense_matrix_t** b, int type, int padding_pattern);
 double ccv_dot(ccv_matrix_t* a, ccv_matrix_t* b);
-double ccv_sum(ccv_matrix_t* mat);
+double ccv_sum(ccv_matrix_t* mat, int flag);
 void ccv_multiply(ccv_matrix_t* a, ccv_matrix_t* b, ccv_matrix_t** c, int type);
-void ccv_substract(ccv_matrix_t* a, ccv_matrix_t* b, ccv_matrix_t** c, int type);
+void ccv_subtract(ccv_matrix_t* a, ccv_matrix_t* b, ccv_matrix_t** c, int type);
 
 enum {
 	CCV_A_TRANSPOSE = 0x01,
@@ -333,6 +340,7 @@ void ccv_visualize(ccv_matrix_t* a, ccv_dense_matrix_t** b, int type);
 void ccv_flatten(ccv_matrix_t* a, ccv_matrix_t** b, int type, int flag);
 void ccv_zero(ccv_matrix_t* mat);
 void ccv_shift(ccv_matrix_t* a, ccv_matrix_t** b, int type, int lr, int rr);
+int ccv_any_nan(ccv_matrix_t *a);
 
 /* basic data structures ccv_util.c */
 
@@ -405,8 +413,6 @@ typedef struct {
 ccv_contour_t* ccv_contour_new(int set);
 void ccv_contour_push(ccv_contour_t* contour, ccv_point_t point);
 void ccv_contour_free(ccv_contour_t* contour);
-/* range: exclusive, return value: inclusive (i.e., threshold = 5, 0~5 is background, 6~range-1 is foreground */
-int ccv_otsu(ccv_dense_matrix_t* a, double* outvar, int range);
 
 /* numerical algorithms ccv_numeric.c */
 
@@ -447,8 +453,6 @@ void ccv_compressive_sensing_reconstruct(ccv_matrix_t* a, ccv_matrix_t* x, ccv_m
 
 void ccv_sobel(ccv_dense_matrix_t* a, ccv_dense_matrix_t** b, int type, int dx, int dy);
 void ccv_gradient(ccv_dense_matrix_t* a, ccv_dense_matrix_t** theta, int ttype, ccv_dense_matrix_t** m, int mtype, int dx, int dy);
-void ccv_hog(ccv_dense_matrix_t* a, ccv_dense_matrix_t** b, int b_type, int sbin, int size);
-void ccv_canny(ccv_dense_matrix_t* a, ccv_dense_matrix_t** b, int type, int size, double low_thresh, double high_thresh);
 
 enum {
 	CCV_INTER_AREA    = 0x01,
@@ -468,6 +472,13 @@ enum {
 
 void ccv_flip(ccv_dense_matrix_t* a, ccv_dense_matrix_t** b, int btype, int type);
 void ccv_blur(ccv_dense_matrix_t* a, ccv_dense_matrix_t** b, int type, double sigma);
+
+/* classic computer vision algorithms ccv_classic.c */
+
+void ccv_hog(ccv_dense_matrix_t* a, ccv_dense_matrix_t** b, int b_type, int sbin, int size);
+void ccv_canny(ccv_dense_matrix_t* a, ccv_dense_matrix_t** b, int type, int size, double low_thresh, double high_thresh);
+/* range: exclusive, return value: inclusive (i.e., threshold = 5, 0~5 is background, 6~range-1 is foreground */
+int ccv_otsu(ccv_dense_matrix_t* a, double* outvar, int range);
 
 /* modern computer vision algorithms */
 /* SIFT, DAISY, SWT, MSER, DPM, BBF, SGF, SSD, FAST */
@@ -575,13 +586,15 @@ typedef struct {
 	ccv_dense_matrix_t* w;
 	double dx, dy, dxx, dyy;
 	int x, y, z;
+	int counterpart;
+	float alpha[6];
 } ccv_dpm_part_classifier_t;
 
 typedef struct {
 	int count;
 	ccv_dpm_part_classifier_t root;
 	ccv_dpm_part_classifier_t* part;
-	double beta;
+	float alpha[3], beta;
 } ccv_dpm_root_classifier_t;
 
 typedef struct {
@@ -593,19 +606,37 @@ typedef struct {
 	int interval;
 	int min_neighbors;
 	int flags;
-	double threshold;
+	float threshold;
 } ccv_dpm_param_t;
 
 typedef struct {
+	int components;
+	int parts;
+	int grayscale;
+	int symmetric;
+	int min_area; // 3000
+	int max_area; // 5000
+	int iterations;
+	int data_minings;
+	int relabels;
+	int negative_cache_size; // 1000
+	double include_overlap; // 0.7
+	double alpha;
+	double alpha_ratio; // 0.85
+	double balance; // 1.5
+	double C;
+	double percentile_breakdown; // 0.05
+	ccv_dpm_param_t detector;
 } ccv_dpm_new_param_t;
 
 enum {
 	CCV_DPM_NO_NESTED = 0x10000000,
 };
 
-void ccv_dpm_classifier_lsvm_new(ccv_dense_matrix_t** posimgs, int posnum, char** bgfiles, int bgnum, int negnum, const char* dir, ccv_dpm_new_param_t params);
+void ccv_dpm_mixture_model_new(char** posfiles, ccv_rect_t* bboxes, int posnum, char** bgfiles, int bgnum, int negnum, const char* dir, ccv_dpm_new_param_t params);
 ccv_array_t* ccv_dpm_detect_objects(ccv_dense_matrix_t* a, ccv_dpm_mixture_model_t** model, int count, ccv_dpm_param_t params);
 ccv_dpm_mixture_model_t* ccv_load_dpm_mixture_model(const char* directory);
+void ccv_dpm_mixture_model_free(ccv_dpm_mixture_model_t* model);
 
 /* this is open source implementation of object detection algorithm: brightness binary feature
  * it is an extension/modification of original HAAR-like feature with Adaboost, featured faster
@@ -647,6 +678,7 @@ typedef struct {
 	int interval;
 	int min_neighbors;
 	int flags;
+	int accurate;
 	ccv_size_t size;
 } ccv_bbf_param_t;
 
@@ -670,61 +702,6 @@ ccv_bbf_classifier_cascade_t* ccv_load_bbf_classifier_cascade(const char* direct
 ccv_bbf_classifier_cascade_t* ccv_bbf_classifier_cascade_read_binary(char* s);
 int ccv_bbf_classifier_cascade_write_binary(ccv_bbf_classifier_cascade_t* cascade, char* s, int slen);
 void ccv_bbf_classifier_cascade_free(ccv_bbf_classifier_cascade_t* cascade);
-
-/* following is proprietary implementation of sparse gradient feature, another object detection algorithm
- * which should have better accuracy to shape focused object (pedestrian, vehicle etc.) but still as fast as bbf */
-
-#define CCV_SGF_POINT_MAX (5)
-#define CCV_SGF_POINT_MIN (3)
-
-typedef struct {
-	int size;
-	int px[CCV_SGF_POINT_MAX];
-	int py[CCV_SGF_POINT_MAX];
-	int pz[CCV_SGF_POINT_MAX];
-	int nx[CCV_SGF_POINT_MAX];
-	int ny[CCV_SGF_POINT_MAX];
-	int nz[CCV_SGF_POINT_MAX];
-} ccv_sgf_feature_t;
-
-typedef struct {
-	int count;
-	float threshold;
-	ccv_sgf_feature_t* feature;
-	float* alpha;
-} ccv_sgf_stage_classifier_t;
-
-typedef struct {
-	int count;
-	ccv_size_t size;
-	ccv_sgf_stage_classifier_t* stage_classifier;
-} ccv_sgf_classifier_cascade_t;
-
-typedef struct {
-	double pos_crit;
-	double neg_crit;
-	double balance_k;
-	int layer;
-	int feature_number;
-} ccv_sgf_param_t;
-
-typedef struct {
-	ccv_rect_t rect;
-	int neighbors;
-	int id;
-	float confidence;
-} ccv_sgf_comp_t;
-
-enum {
-	CCV_SGF_NO_NESTED = 0x10000000,
-};
-
-void ccv_sgf_classifier_cascade_new(ccv_dense_matrix_t** posimg, int posnum, char** bgfiles, int bgnum, int negnum, ccv_size_t size, const char* dir, ccv_sgf_param_t params);
-ccv_array_t* ccv_sgf_detect_objects(ccv_dense_matrix_t* a, ccv_sgf_classifier_cascade_t** _cascade, int count, int min_neighbors, int flags, ccv_size_t min_size);
-ccv_sgf_classifier_cascade_t* ccv_load_sgf_classifier_cascade(const char* directory);
-ccv_sgf_classifier_cascade_t* ccv_sgf_classifier_cascade_read_binary(char* s);
-int ccv_sgf_classifier_cascade_write_binary(ccv_sgf_classifier_cascade_t* cascade, char* s, int slen);
-void ccv_sgf_classifier_cascade_free(ccv_sgf_classifier_cascade_t* cascade);
 
 /* modern machine learning algorithms */
 /* RBM, LLE, APCluster */

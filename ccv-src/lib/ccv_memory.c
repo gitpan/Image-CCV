@@ -22,7 +22,7 @@ ccv_dense_matrix_t* ccv_dense_matrix_new(int rows, int cols, int type, void* dat
 	}
 	mat = (ccv_dense_matrix_t*)(data ? data : ccmalloc(ccv_compute_dense_matrix_size(rows, cols, type)));
 	mat->sig = sig;
-	mat->type = (type | CCV_MATRIX_DENSE) & ~CCV_GARBAGE;
+	mat->type = (CCV_GET_CHANNEL(type) | CCV_GET_DATA_TYPE(type) | CCV_MATRIX_DENSE) & ~CCV_GARBAGE;
 	mat->type |= data ? CCV_UNMANAGED : CCV_REUSABLE;
 	mat->rows = rows;
 	mat->cols = cols;
@@ -39,7 +39,8 @@ ccv_dense_matrix_t* ccv_dense_matrix_renew(ccv_dense_matrix_t* x, int rows, int 
 		assert(x->rows == rows && x->cols == cols && (CCV_GET_DATA_TYPE(x->type) & types) && (CCV_GET_CHANNEL(x->type) == CCV_GET_CHANNEL(types)));
 		prefer_type = CCV_GET_DATA_TYPE(x->type) | CCV_GET_CHANNEL(x->type);
 	}
-	sig = ccv_matrix_generate_signature((const char*)&prefer_type, sizeof(int), sig, 0);
+	if (sig != 0)
+		sig = ccv_matrix_generate_signature((const char*)&prefer_type, sizeof(int), sig, 0);
 	if (x == 0)
 	{
 		x = ccv_dense_matrix_new(rows, cols, prefer_type, 0, sig);
@@ -49,11 +50,36 @@ ccv_dense_matrix_t* ccv_dense_matrix_renew(ccv_dense_matrix_t* x, int rows, int 
 	return x;
 }
 
+void ccv_make_matrix_mutable(ccv_matrix_t* mat)
+{
+	int type = *(int*)mat;
+	if (type & CCV_MATRIX_DENSE)
+	{
+		ccv_dense_matrix_t* dmt = (ccv_dense_matrix_t*)mat;
+		dmt->sig = 0;
+		dmt->type &= ~CCV_REUSABLE;
+	}
+}
+
+void ccv_make_matrix_immutable(ccv_matrix_t* mat)
+{
+	int type = *(int*)mat;
+	if (type & CCV_MATRIX_DENSE)
+	{
+		ccv_dense_matrix_t* dmt = (ccv_dense_matrix_t*)mat;
+		assert(dmt->sig == 0);
+		/* immutable matrix made this way is not reusable (collected), because its signature
+		 * only depends on the content, not the operation to generate it */
+		dmt->type &= ~CCV_REUSABLE;
+		dmt->sig = ccv_matrix_generate_signature((char*)dmt->data.u8, dmt->rows * dmt->step, (uint64_t)dmt->type, 0);
+	}
+}
+
 ccv_dense_matrix_t ccv_dense_matrix(int rows, int cols, int type, void* data, uint64_t sig)
 {
 	ccv_dense_matrix_t mat;
 	mat.sig = sig;
-	mat.type = (type | CCV_MATRIX_DENSE | CCV_UNMANAGED) & ~CCV_GARBAGE;
+	mat.type = (CCV_GET_CHANNEL(type) | CCV_GET_DATA_TYPE(type) | CCV_MATRIX_DENSE | CCV_UNMANAGED) & ~CCV_GARBAGE;
 	mat.rows = rows;
 	mat.cols = cols;
 	mat.step = (cols * CCV_GET_DATA_TYPE_SIZE(type) * CCV_GET_CHANNEL(type) + 3) & -4;

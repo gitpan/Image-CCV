@@ -131,18 +131,31 @@ void ccv_sat(ccv_dense_matrix_t* a, ccv_dense_matrix_t** b, int type, int paddin
 	}
 }
 
-double ccv_sum(ccv_matrix_t* mat)
+double ccv_sum(ccv_matrix_t* mat, int flag)
 {
 	ccv_dense_matrix_t* dmt = ccv_get_dense_matrix(mat);
 	double sum = 0;
 	unsigned char* m_ptr = dmt->data.u8;
-	int i, j;
+	int i, j, ch = CCV_GET_CHANNEL(dmt->type);
 #define for_block(_, _for_get) \
-	for (i = 0; i < dmt->rows; i++) \
+	switch (flag) \
 	{ \
-		for (j = 0; j < dmt->cols; j++) \
-			sum += _for_get(m_ptr, j, 0); \
-		m_ptr += dmt->step; \
+		case CCV_UNSIGNED: \
+			for (i = 0; i < dmt->rows; i++) \
+			{ \
+				for (j = 0; j < dmt->cols * ch; j++) \
+					sum += fabs(_for_get(m_ptr, j, 0)); \
+				m_ptr += dmt->step; \
+			} \
+			break; \
+		case CCV_SIGNED: \
+		default: \
+			for (i = 0; i < dmt->rows; i++) \
+			{ \
+				for (j = 0; j < dmt->cols * ch; j++) \
+					sum += _for_get(m_ptr, j, 0); \
+				m_ptr += dmt->step; \
+			} \
 	}
 	ccv_matrix_getter(dmt->type, for_block);
 #undef for_block
@@ -176,12 +189,12 @@ void ccv_multiply(ccv_matrix_t* a, ccv_matrix_t* b, ccv_matrix_t** c, int type)
 #undef for_block
 }
 
-void ccv_substract(ccv_matrix_t* a, ccv_matrix_t* b, ccv_matrix_t** c, int type)
+void ccv_subtract(ccv_matrix_t* a, ccv_matrix_t* b, ccv_matrix_t** c, int type)
 {
 	ccv_dense_matrix_t* da = ccv_get_dense_matrix(a);
 	ccv_dense_matrix_t* db = ccv_get_dense_matrix(b);
 	assert(da->rows == db->rows && da->cols == db->cols && CCV_GET_DATA_TYPE(da->type) == CCV_GET_DATA_TYPE(db->type) && CCV_GET_CHANNEL(da->type) == CCV_GET_CHANNEL(db->type));
-	ccv_declare_matrix_signature(sig, da->sig != 0 && db->sig != 0, ccv_sign_with_literal("ccv_substract"), da->sig, db->sig, 0);
+	ccv_declare_matrix_signature(sig, da->sig != 0 && db->sig != 0, ccv_sign_with_literal("ccv_subtract"), da->sig, db->sig, 0);
 	int no_8u_type = (da->type & CCV_8U) ? CCV_32S : da->type;
 	type = (type == 0) ? CCV_GET_DATA_TYPE(no_8u_type) | CCV_GET_CHANNEL(da->type) : CCV_GET_DATA_TYPE(type) | CCV_GET_CHANNEL(da->type);
 	ccv_dense_matrix_t* dc = *c = ccv_dense_matrix_renew(*c, da->rows, da->cols, CCV_ALL_DATA_TYPE | CCV_GET_CHANNEL(da->type), type, sig);
