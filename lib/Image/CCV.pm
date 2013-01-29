@@ -4,7 +4,7 @@ require DynaLoader;
 use Carp qw(croak);
 use vars qw($VERSION @EXPORT @ISA);
 
-$VERSION = '0.06'; 
+$VERSION = '0.07'; 
 
 @EXPORT = qw(sift detect_faces );
 
@@ -241,7 +241,7 @@ Max Maischein C<corion@cpan.org>
 
 =head1 COPYRIGHT (c)
 
-Copyright 2012 by Max Maischein C<corion@cpan.org>.
+Copyright 2012-2013 by Max Maischein C<corion@cpan.org>.
 
 =head1 LICENSE
 
