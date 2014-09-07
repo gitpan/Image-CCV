@@ -1,10 +1,14 @@
-#!perl -w
+#!perl
 use strict;
+use warnings;
 use Getopt::Long;
 use Pod::Usage;
 use Imager;
 use Imager::Fill;
 use Image::CCV qw(detect_faces);
+
+use vars qw($VERSION);
+$VERSION = '0.10';
 
 =head1 NAME
 

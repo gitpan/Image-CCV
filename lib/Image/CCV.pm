@@ -4,7 +4,7 @@ require DynaLoader;
 use Carp qw(croak);
 use vars qw($VERSION @EXPORT @ISA);
 
-$VERSION = '0.09'; 
+$VERSION = '0.10'; 
 
 @EXPORT = qw(sift detect_faces );
 
@@ -234,6 +234,11 @@ L<German Perl Workshop, German|http://corion.net/talks/Image-CCV-lightning-talk/
 Please report bugs in this module via the RT CPAN bug queue at
 L<https://rt.cpan.org/Public/Dist/Display.html?Name=Image-CCV>
 or via mail to L<image-ccv-Bugs@rt.cpan.org>.
+
+=head1 INSTALL
+
+Compilation requires -dev header libraries, so make sure you have (at the time of writing, on *nix)
+I<libjpeg8-dev> and I<libpng12-dev> installed.
 
 =head1 AUTHOR
 
